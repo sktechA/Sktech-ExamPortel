@@ -557,7 +557,21 @@ apiRouter.get('/admin/audit-logs', requireAdminAuth, (req: Request, res: Respons
 });
 
 // 14. Admin Authentication & Settings (Dual-Method POST + GET Support to eliminate 405 Method Not Allowed)
-apiRouter.all(['/auth/admin/login', '/admin/login'], (req: Request, res: Response) => {
+const ADMIN_LOGIN_PATHS = [
+  '/auth/admin/login',
+  '/admin/login',
+  '/auth/admin/signin',
+  '/admin/signin',
+  '/admin/auth/login',
+  '/auth/admin',
+  '/admin/api/login',
+  '/api/admin/login',
+  '/api/v1/auth/admin/login',
+  '/api/v1/admin/login',
+  '/api/auth/admin/login',
+];
+
+apiRouter.all(ADMIN_LOGIN_PATHS, (req: Request, res: Response) => {
   if (req.method === 'GET') {
     const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
     if (authHeader) {
@@ -583,12 +597,14 @@ apiRouter.all(['/auth/admin/login', '/admin/login'], (req: Request, res: Respons
   }
 
   if (req.method === 'POST') {
-    const { username, password, email } = req.body || {};
-    const adminIdentifier = username || email;
-    if (!adminIdentifier || !password) {
+    const { username, password, email, user, identifier, adminIdentifier: bodyAdminId, pass, adminPassword } = req.body || {};
+    const resolvedAdminId = (username || email || identifier || user || bodyAdminId || '').trim();
+    const resolvedAdminPass = (password || pass || adminPassword || '').trim();
+
+    if (!resolvedAdminId || !resolvedAdminPass) {
       return res.status(400).json({ success: false, message: 'Administrator username/email and password are required.' });
     }
-    const isValid = db.verifyAdminLogin(adminIdentifier, password);
+    const isValid = db.verifyAdminLogin(resolvedAdminId, resolvedAdminPass);
     if (!isValid) {
       return res.status(401).json({ success: false, message: 'Invalid administrator credentials.' });
     }
@@ -617,18 +633,17 @@ apiRouter.all(['/auth/admin/login', '/admin/login'], (req: Request, res: Respons
   });
 });
 
-apiRouter.get('/auth/admin/credentials', requireAdminAuth, (req: Request, res: Response) => {
-  res.json({
-    success: true,
-    data: {
-      username: db.adminCredentials.username,
-      lastUpdated: db.adminCredentials.lastUpdated,
-    },
-  });
-});
+const ADMIN_CREDENTIALS_PATHS = [
+  '/auth/admin/credentials',
+  '/admin/credentials',
+  '/admin/auth/credentials',
+  '/auth/credentials',
+  '/api/admin/credentials',
+  '/api/v1/auth/admin/credentials',
+  '/api/auth/admin/credentials',
+];
 
-// Support both PUT and POST for admin credential form submission
-apiRouter.all('/auth/admin/credentials', requireAdminAuth, (req: Request, res: Response) => {
+apiRouter.all(ADMIN_CREDENTIALS_PATHS, requireAdminAuth, (req: Request, res: Response) => {
   if (req.method === 'GET') {
     return res.json({
       success: true,
@@ -640,8 +655,11 @@ apiRouter.all('/auth/admin/credentials', requireAdminAuth, (req: Request, res: R
   }
 
   if (req.method === 'PUT' || req.method === 'POST') {
-    const { currentPassword, newUsername, newPassword } = req.body || {};
-    const result = db.updateAdminCredentials(currentPassword, newUsername, newPassword);
+    const { currentPassword, newUsername, newPassword, pass, currentPass, newPass } = req.body || {};
+    const curP = currentPassword || currentPass || pass;
+    const newU = newUsername;
+    const newP = newPassword || newPass;
+    const result = db.updateAdminCredentials(curP, newU, newP);
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -666,7 +684,27 @@ apiRouter.all('/auth/admin/credentials', requireAdminAuth, (req: Request, res: R
 });
 
 // 15. Candidate Authentication & Registration (Dual-Method POST + GET Support to eliminate 405)
-apiRouter.all(['/auth/register', '/register'], (req: Request, res: Response) => {
+const REGISTER_PATHS = [
+  '/auth/register',
+  '/register',
+  '/auth/signup',
+  '/signup',
+  '/auth/candidate/register',
+  '/candidate/register',
+  '/auth/candidate/signup',
+  '/candidate/signup',
+  '/auth/candidate',
+  '/api/register',
+  '/api/signup',
+  '/api/auth/register',
+  '/api/auth/signup',
+  '/api/v1/auth/register',
+  '/api/v1/auth/signup',
+  '/api/v1/register',
+  '/api/v1/signup',
+];
+
+apiRouter.all(REGISTER_PATHS, (req: Request, res: Response) => {
   if (req.method === 'GET') {
     return res.json({
       success: true,
@@ -676,12 +714,16 @@ apiRouter.all(['/auth/register', '/register'], (req: Request, res: Response) => 
   }
 
   if (req.method === 'POST') {
-    const { name, email, phone, password, targetExam } = req.body || {};
-    const candidateEmail = email || (phone ? `${phone.replace(/[^0-9]/g, '')}@sktech.candidate.in` : '');
-    if (!name || !candidateEmail || !password) {
+    const { name, fullName, candidateName, email, candidateEmail, phone, password, pass, targetExam, exam } = req.body || {};
+    const resolvedName = (name || fullName || candidateName || '').trim();
+    const resolvedEmail = (email || candidateEmail || (phone ? `${phone.replace(/[^0-9]/g, '')}@sktech.candidate.in` : '')).trim();
+    const resolvedPassword = (password || pass || '').trim();
+    const resolvedExam = targetExam || exam || 'General Competitive Exams';
+
+    if (!resolvedName || !resolvedEmail || !resolvedPassword) {
       return res.status(400).json({ success: false, message: 'Name, email, and password are required.' });
     }
-    const result = db.registerCandidate(name, candidateEmail, password, targetExam);
+    const result = db.registerCandidate(resolvedName, resolvedEmail, resolvedPassword, resolvedExam);
     if (!result.success) {
       return res.status(400).json(result);
     }
@@ -700,7 +742,23 @@ apiRouter.all(['/auth/register', '/register'], (req: Request, res: Response) => 
   });
 });
 
-apiRouter.all(['/auth/login', '/login'], (req: Request, res: Response) => {
+const CANDIDATE_LOGIN_PATHS = [
+  '/auth/login',
+  '/login',
+  '/auth/signin',
+  '/signin',
+  '/auth/candidate/login',
+  '/candidate/login',
+  '/auth/candidate/signin',
+  '/candidate/signin',
+  '/api/login',
+  '/api/signin',
+  '/api/auth/login',
+  '/api/v1/auth/login',
+  '/api/v1/login',
+];
+
+apiRouter.all(CANDIDATE_LOGIN_PATHS, (req: Request, res: Response) => {
   if (req.method === 'GET') {
     const authHeader = req.headers.authorization;
     if (authHeader) {
@@ -726,12 +784,14 @@ apiRouter.all(['/auth/login', '/login'], (req: Request, res: Response) => {
   }
 
   if (req.method === 'POST') {
-    const { email, phone, username, password } = req.body || {};
-    const identifier = email || phone || username;
-    if (!identifier || !password) {
+    const { email, candidateEmail, phone, username, identifier, password, pass } = req.body || {};
+    const resolvedId = (email || candidateEmail || phone || username || identifier || '').trim();
+    const resolvedPass = (password || pass || '').trim();
+
+    if (!resolvedId || !resolvedPass) {
       return res.status(400).json({ success: false, message: 'Email/phone and password are required.' });
     }
-    const result = db.loginCandidate(identifier, password);
+    const result = db.loginCandidate(resolvedId, resolvedPass);
     if (!result.success) {
       return res.status(401).json(result);
     }
@@ -751,7 +811,18 @@ apiRouter.all(['/auth/login', '/login'], (req: Request, res: Response) => {
 });
 
 // Candidate and Admin Session Verification and Logout
-apiRouter.all(['/auth/logout', '/auth/admin/logout'], (req: Request, res: Response) => {
+const LOGOUT_PATHS = [
+  '/auth/logout',
+  '/auth/admin/logout',
+  '/logout',
+  '/admin/logout',
+  '/auth/candidate/logout',
+  '/candidate/logout',
+  '/api/auth/logout',
+  '/api/v1/auth/logout',
+];
+
+apiRouter.all(LOGOUT_PATHS, (req: Request, res: Response) => {
   const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
   if (authHeader) {
     const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
@@ -764,7 +835,22 @@ apiRouter.all(['/auth/logout', '/auth/admin/logout'], (req: Request, res: Respon
   return res.json({ success: true, message: 'Signed out successfully.' });
 });
 
-apiRouter.all(['/auth/me', '/auth/session', '/auth/status'], (req: Request, res: Response) => {
+const SESSION_PATHS = [
+  '/auth/me',
+  '/auth/session',
+  '/auth/status',
+  '/me',
+  '/session',
+  '/status',
+  '/auth/admin/me',
+  '/auth/admin/session',
+  '/auth/candidate/me',
+  '/auth/candidate/session',
+  '/api/auth/me',
+  '/api/v1/auth/me',
+];
+
+apiRouter.all(SESSION_PATHS, (req: Request, res: Response) => {
   const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
   if (!authHeader) {
     return res.json({ success: false, authenticated: false, user: null });
@@ -817,8 +903,19 @@ apiRouter.post('/admin/duplicates/:id/resolve', requireAdminAuth, (req: Request,
 });
 
 // Multi-Verification Endpoints (Phone OTP, Google Sign-In, Apple ID)
-apiRouter.post('/auth/otp/send', (req: Request, res: Response) => {
-  const { phone } = req.body;
+const OTP_SEND_PATHS = [
+  '/auth/otp/send',
+  '/otp/send',
+  '/api/otp/send',
+  '/api/auth/otp/send',
+  '/api/v1/auth/otp/send',
+];
+
+apiRouter.all(OTP_SEND_PATHS, (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    return res.json({ success: true, message: 'OTP Gateway ready. Send POST with phone number.' });
+  }
+  const { phone } = req.body || {};
   if (!phone) {
     return res.status(400).json({ success: false, message: 'Mobile number is required.' });
   }
@@ -826,8 +923,19 @@ apiRouter.post('/auth/otp/send', (req: Request, res: Response) => {
   res.json(result);
 });
 
-apiRouter.post('/auth/otp/verify', (req: Request, res: Response) => {
-  const { phone, otp, name, email, targetExam } = req.body;
+const OTP_VERIFY_PATHS = [
+  '/auth/otp/verify',
+  '/otp/verify',
+  '/api/otp/verify',
+  '/api/auth/otp/verify',
+  '/api/v1/auth/otp/verify',
+];
+
+apiRouter.all(OTP_VERIFY_PATHS, (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    return res.json({ success: true, message: 'OTP Verification ready. Send POST with phone and otp code.' });
+  }
+  const { phone, otp, name, email, targetExam } = req.body || {};
   if (!phone || !otp) {
     return res.status(400).json({ success: false, message: 'Phone number and OTP code are required.' });
   }
@@ -841,8 +949,19 @@ apiRouter.post('/auth/otp/verify', (req: Request, res: Response) => {
   });
 });
 
-apiRouter.post('/auth/oauth/google', (req: Request, res: Response) => {
-  const { email, name, avatarUrl } = req.body;
+const OAUTH_GOOGLE_PATHS = [
+  '/auth/oauth/google',
+  '/oauth/google',
+  '/api/oauth/google',
+  '/api/auth/oauth/google',
+  '/api/v1/auth/oauth/google',
+];
+
+apiRouter.all(OAUTH_GOOGLE_PATHS, (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    return res.json({ success: true, message: 'Google OAuth ready. Send POST with token or user profile.' });
+  }
+  const { email, name, avatarUrl } = req.body || {};
   if (!email || !name) {
     return res.status(400).json({ success: false, message: 'Google account credentials invalid or missing.' });
   }
@@ -855,8 +974,19 @@ apiRouter.post('/auth/oauth/google', (req: Request, res: Response) => {
   });
 });
 
-apiRouter.post('/auth/oauth/apple', (req: Request, res: Response) => {
-  const { appleId, name } = req.body;
+const OAUTH_APPLE_PATHS = [
+  '/auth/oauth/apple',
+  '/oauth/apple',
+  '/api/oauth/apple',
+  '/api/auth/oauth/apple',
+  '/api/v1/auth/oauth/apple',
+];
+
+apiRouter.all(OAUTH_APPLE_PATHS, (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    return res.json({ success: true, message: 'Apple OAuth ready. Send POST with Apple identity token.' });
+  }
+  const { appleId, name } = req.body || {};
   if (!appleId) {
     return res.status(400).json({ success: false, message: 'Apple identity token required.' });
   }

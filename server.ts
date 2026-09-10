@@ -41,14 +41,39 @@ async function startServer() {
   // Mount Central REST API router at both /api/v1 AND /api
   app.use('/api/v1', apiRouter);
   app.use('/api', apiRouter);
+  app.use('/auth', apiRouter);
 
-  // Direct alias forwarding for /auth, /admin/login, /login, and /register
-  app.use('/auth', (req, res, next) => {
-    req.url = '/auth' + (req.url === '/' ? '' : req.url);
-    apiRouter(req, res, next);
-  });
-  app.use(['/admin/login', '/login', '/register'], (req, res, next) => {
-    apiRouter(req, res, next);
+  // Comprehensive direct auth endpoints (prevents Express path-stripping 404s)
+  const directAuthPaths = new Set([
+    '/login',
+    '/signin',
+    '/signup',
+    '/register',
+    '/admin/login',
+    '/admin/signin',
+    '/admin/auth/login',
+    '/candidate/login',
+    '/candidate/signin',
+    '/candidate/register',
+    '/candidate/signup',
+    '/logout',
+    '/admin/logout',
+    '/candidate/logout',
+    '/auth/me',
+    '/auth/session',
+    '/auth/status',
+    '/me',
+    '/session',
+    '/otp/send',
+    '/otp/verify',
+  ]);
+
+  app.use((req, res, next) => {
+    const rawPath = req.path.toLowerCase().replace(/\/+$/, '');
+    if (directAuthPaths.has(rawPath) || rawPath.startsWith('/api') || rawPath.startsWith('/auth')) {
+      return apiRouter(req, res, next);
+    }
+    next();
   });
 
   // Vite middleware for development vs Static files for production
@@ -57,9 +82,15 @@ async function startServer() {
       server: { middlewareMode: true },
       appType: 'spa',
     });
-    // Protect against 405 Method Not Allowed when forms submit POST to HTML routes (e.g. / or /admin)
+    // Protect against 405 Method Not Allowed when forms submit POST to HTML routes
     app.use((req, res, next) => {
-      if (req.method === 'POST' && !req.path.startsWith('/api') && !req.path.startsWith('/auth')) {
+      const rawPath = req.path.toLowerCase().replace(/\/+$/, '');
+      if (
+        req.method === 'POST' &&
+        !req.path.startsWith('/api') &&
+        !req.path.startsWith('/auth') &&
+        !directAuthPaths.has(rawPath)
+      ) {
         return res.redirect(req.originalUrl);
       }
       next();

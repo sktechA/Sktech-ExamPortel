@@ -6,6 +6,22 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/auth/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/(login|signin|signup|register|logout|me|session|otp)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/login",
+      "destination": "/api/index"
+    },
+    {
       "source": "/admin/:path*",
       "destination": "/admin.html"
     },

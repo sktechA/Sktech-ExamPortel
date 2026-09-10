@@ -145,24 +145,52 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
     headers,
   });
 
-  // Resilient fallback: If 405 Method Not Allowed or 404 is encountered, attempt secondary root `/api`
-  if ((response.status === 405 || response.status === 404) && API_BASE !== '/api') {
-    try {
-      const fallbackResponse = await fetch(`/api${cleanEndpoint}`, {
-        ...options,
-        headers,
-      });
-      if (fallbackResponse.ok) {
-        return fallbackResponse.json();
+  // Resilient multi-tier fallback: If 405 Method Not Allowed or 404 is encountered, try alternative paths
+  if ((response.status === 405 || response.status === 404)) {
+    const candidatePaths: string[] = [];
+    if (API_BASE !== '/api') {
+      candidatePaths.push(`/api${cleanEndpoint}`);
+    }
+    candidatePaths.push(cleanEndpoint);
+    if (cleanEndpoint.startsWith('/auth/')) {
+      candidatePaths.push(cleanEndpoint.replace('/auth/', '/'));
+    }
+    if (cleanEndpoint === '/auth/register') {
+      candidatePaths.push('/auth/signup', '/signup', '/api/signup', '/api/v1/auth/signup');
+    }
+    if (cleanEndpoint === '/auth/login') {
+      candidatePaths.push('/login', '/api/login', '/api/v1/login');
+    }
+    if (cleanEndpoint === '/auth/admin/login') {
+      candidatePaths.push('/admin/login', '/api/admin/login', '/api/v1/admin/login');
+    }
+
+    for (const altPath of candidatePaths) {
+      if (altPath === `${API_BASE}${cleanEndpoint}`) continue;
+      try {
+        const fallbackResponse = await fetch(altPath, {
+          ...options,
+          headers,
+        });
+        if (fallbackResponse.ok) {
+          return fallbackResponse.json();
+        }
+      } catch {
+        // Try next alternate path
       }
-    } catch {
-      // Continue to default error handling
     }
   }
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
-    throw new Error(errorBody.message || `API error ${response.status}: ${response.statusText}`);
+    const message = errorBody.message || errorBody.error;
+    if (message) {
+      throw new Error(message);
+    }
+    if (response.status === 404) {
+      throw new Error('Authentication service endpoint not reachable. Please check your network or try again.');
+    }
+    throw new Error(`API error ${response.status}: ${response.statusText}`);
   }
 
   return response.json();
@@ -397,7 +425,10 @@ export const api = {
         localStorage.setItem('SKTECH_ADMIN_USER', JSON.stringify(adminUserObj));
         return { success: true, token, user: adminUserObj };
       }
-      throw err;
+      if (err?.message && !err.message.includes('404')) {
+        throw err;
+      }
+      throw new Error('Invalid administrator username or password.');
     }
   },
 
@@ -508,7 +539,10 @@ export const api = {
         localStorage.setItem('SKTECH_CANDIDATE_USER', JSON.stringify(fallbackUser));
         return { success: true, token, user: fallbackUser };
       }
-      throw err;
+      if (err?.message && !err.message.includes('404')) {
+        throw err;
+      }
+      throw new Error('Invalid candidate credentials. Please check your email and password.');
     }
   },
 

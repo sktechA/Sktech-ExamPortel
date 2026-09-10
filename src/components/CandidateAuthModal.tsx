@@ -166,11 +166,11 @@ export const CandidateAuthModal: React.FC<CandidateAuthModalProps> = ({
         const resp = await api.registerCandidate(name.trim(), emailFormatted, password, targetExam);
         if (resp.success) {
           // Explicit requirement: "Your account created successfully! Please login."
-          setSuccessMessage('Your account created successfully! Please login.');
+          setSuccessMessage(resp.message || 'Your account created successfully! Please login.');
           setMode('LOGIN');
           setPassword('');
         } else {
-          setError(language === 'hi' ? 'खाता पंजीकरण में त्रुटि हुई।' : 'Registration could not be completed.');
+          setError(resp.message || (language === 'hi' ? 'खाता पंजीकरण में त्रुटि हुई।' : 'Registration could not be completed.'));
         }
       } else {
         // LOGIN MODE
