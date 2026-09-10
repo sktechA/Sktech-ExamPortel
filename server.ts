@@ -17,6 +17,18 @@ async function startServer() {
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
+  // Global CORS & Preflight OPTIONS Handler (Prevents 405 Method Not Allowed on API and Auth routes)
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-token, *');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+    next();
+  });
+
   // Basic request security headers
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -25,29 +37,17 @@ async function startServer() {
     next();
   });
 
-  // Mount Central REST API v1 FIRST
+  // Mount Central REST API router at both /api/v1 AND /api
   app.use('/api/v1', apiRouter);
+  app.use('/api', apiRouter);
 
-  // Fallback API root
-  app.get('/api', (req: Request, res: Response) => {
-    res.json({
-      name: 'SKTECH EXAM API',
-      version: '1.0.0-phase1',
-      brand: 'SKTECH',
-      footer: 'Powered by SKTECH • All Rights Reserved © 2026',
-      endpoints: [
-        '/api/v1/health',
-        '/api/v1/specs',
-        '/api/v1/exams',
-        '/api/v1/subjects',
-        '/api/v1/questions',
-        '/api/v1/mock-tests',
-        '/api/v1/attempts',
-        '/api/v1/results/:attemptId',
-        '/api/v1/current-affairs',
-        '/api/v1/admin/overview',
-      ],
-    });
+  // Direct alias forwarding for /auth, /admin/login, /login, and /register
+  app.use('/auth', (req, res, next) => {
+    req.url = '/auth' + (req.url === '/' ? '' : req.url);
+    apiRouter(req, res, next);
+  });
+  app.use(['/admin/login', '/login', '/register'], (req, res, next) => {
+    apiRouter(req, res, next);
   });
 
   // Vite middleware for development vs Static files for production
@@ -56,11 +56,26 @@ async function startServer() {
       server: { middlewareMode: true },
       appType: 'spa',
     });
+    // Protect against 405 Method Not Allowed when forms submit POST to HTML routes (e.g. / or /admin)
+    app.use((req, res, next) => {
+      if (req.method === 'POST' && !req.path.startsWith('/api') && !req.path.startsWith('/auth')) {
+        return res.redirect(req.originalUrl);
+      }
+      next();
+    });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response) => {
+    // Catch-all SPA handler for production (handles GET, POST, etc. without 405 error)
+    app.all('*', (req: Request, res: Response) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+        return res.status(404).json({
+          success: false,
+          code: 'API_ENDPOINT_NOT_FOUND',
+          message: `Endpoint ${req.method} ${req.originalUrl} not found.`,
+        });
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

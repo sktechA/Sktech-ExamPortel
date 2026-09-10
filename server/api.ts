@@ -537,31 +537,64 @@ apiRouter.get('/admin/audit-logs', requireAdminAuth, (req: Request, res: Respons
   });
 });
 
-// 14. Admin Authentication & Settings
-apiRouter.post('/auth/admin/login', (req: Request, res: Response) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ success: false, message: 'Username and password are required.' });
+// 14. Admin Authentication & Settings (Dual-Method POST + GET Support to eliminate 405 Method Not Allowed)
+apiRouter.all(['/auth/admin/login', '/admin/login'], (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
+    if (authHeader) {
+      const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+        ? authHeader.substring(7).trim()
+        : (authHeader as string).trim();
+      const session = db.verifySessionToken(token);
+      if (session) {
+        return res.json({
+          success: true,
+          authenticated: true,
+          user: session.user,
+          message: 'Active administrator session verified.',
+        });
+      }
+    }
+    return res.json({
+      success: true,
+      authenticated: false,
+      message: 'Admin Authentication Gateway is ready. Submit POST request with administrator credentials.',
+      supportedMethods: ['GET', 'POST', 'OPTIONS'],
+    });
   }
-  const isValid = db.verifyAdminLogin(username, password);
-  if (!isValid) {
-    return res.status(401).json({ success: false, message: 'Invalid admin credentials.' });
+
+  if (req.method === 'POST') {
+    const { username, password, email } = req.body || {};
+    const adminIdentifier = username || email;
+    if (!adminIdentifier || !password) {
+      return res.status(400).json({ success: false, message: 'Administrator username/email and password are required.' });
+    }
+    const isValid = db.verifyAdminLogin(adminIdentifier, password);
+    if (!isValid) {
+      return res.status(401).json({ success: false, message: 'Invalid administrator credentials.' });
+    }
+    const adminUser: User = db.users.find((u) => u.role === 'SUPER_ADMIN') || {
+      id: 'usr_admin_01',
+      name: 'Er. Sachin Tripathi',
+      email: 'skt22tripathi@gmail.com',
+      role: 'SUPER_ADMIN',
+      joinedDate: '2026-01-01',
+      status: 'ACTIVE',
+      permissions: ['ALL_PERMISSIONS'],
+    };
+    const token = db.createSession(adminUser);
+    return res.json({
+      success: true,
+      message: 'Admin authentication successful',
+      token,
+      user: adminUser,
+    });
   }
-  const adminUser: User = db.users.find((u) => u.role === 'SUPER_ADMIN') || {
-    id: 'usr_admin_01',
-    name: 'Er. Sachin Tripathi',
-    email: 'skt22tripathi@gmail.com',
-    role: 'SUPER_ADMIN',
-    joinedDate: '2026-01-01',
-    status: 'ACTIVE',
-    permissions: ['ALL_PERMISSIONS'],
-  };
-  const token = db.createSession(adminUser);
-  res.json({
-    success: true,
-    message: 'Admin authentication successful',
-    token,
-    user: adminUser,
+
+  return res.status(405).json({
+    success: false,
+    code: 'METHOD_NOT_ALLOWED',
+    message: `HTTP Method ${req.method} is not allowed on admin login endpoint. Please use POST or GET.`,
   });
 });
 
@@ -575,58 +608,156 @@ apiRouter.get('/auth/admin/credentials', requireAdminAuth, (req: Request, res: R
   });
 });
 
-apiRouter.put('/auth/admin/credentials', requireAdminAuth, (req: Request, res: Response) => {
-  const { currentPassword, newUsername, newPassword } = req.body;
-  const result = db.updateAdminCredentials(currentPassword, newUsername, newPassword);
-  if (!result.success) {
-    return res.status(400).json(result);
+// Support both PUT and POST for admin credential form submission
+apiRouter.all('/auth/admin/credentials', requireAdminAuth, (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    return res.json({
+      success: true,
+      data: {
+        username: db.adminCredentials.username,
+        lastUpdated: db.adminCredentials.lastUpdated,
+      },
+    });
   }
-  db.auditLogs.unshift({
-    id: `log_${Date.now()}`,
-    userId: 'usr_admin_01',
-    userName: 'Er. Sachin Tripathi',
-    action: 'ADMIN_CREDENTIALS_UPDATED',
-    module: 'ADMIN_SECURITY',
-    entityId: 'admin',
-    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-    details: `Admin username updated to "${newUsername}" with updated secure passphrase.`,
+
+  if (req.method === 'PUT' || req.method === 'POST') {
+    const { currentPassword, newUsername, newPassword } = req.body || {};
+    const result = db.updateAdminCredentials(currentPassword, newUsername, newPassword);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    db.auditLogs.unshift({
+      id: `log_${Date.now()}`,
+      userId: 'usr_admin_01',
+      userName: 'Er. Sachin Tripathi',
+      action: 'ADMIN_CREDENTIALS_UPDATED',
+      module: 'ADMIN_SECURITY',
+      entityId: 'admin',
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      details: `Admin username updated to "${newUsername}" with updated secure passphrase.`,
+    });
+    return res.json(result);
+  }
+
+  return res.status(405).json({
+    success: false,
+    code: 'METHOD_NOT_ALLOWED',
+    message: `HTTP Method ${req.method} not allowed on credentials endpoint. Supported: GET, PUT, POST.`,
   });
-  res.json(result);
 });
 
-// 15. Candidate Authentication & Registration (Real PostgreSQL persistence)
-apiRouter.post('/auth/register', (req: Request, res: Response) => {
-  const { name, email, password, targetExam } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ success: false, message: 'Name, email, and password are required.' });
+// 15. Candidate Authentication & Registration (Dual-Method POST + GET Support to eliminate 405)
+apiRouter.all(['/auth/register', '/register'], (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    return res.json({
+      success: true,
+      message: 'Candidate Registration Gateway is ready. Submit POST request with name, email, and password.',
+      supportedMethods: ['GET', 'POST', 'OPTIONS'],
+    });
   }
-  const result = db.registerCandidate(name, email, password, targetExam);
-  if (!result.success) {
-    return res.status(400).json(result);
+
+  if (req.method === 'POST') {
+    const { name, email, phone, password, targetExam } = req.body || {};
+    const candidateEmail = email || (phone ? `${phone.replace(/[^0-9]/g, '')}@sktech.candidate.in` : '');
+    if (!name || !candidateEmail || !password) {
+      return res.status(400).json({ success: false, message: 'Name, email, and password are required.' });
+    }
+    const result = db.registerCandidate(name, candidateEmail, password, targetExam);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    return res.status(201).json({
+      success: true,
+      message: 'Your account created successfully! Please login.',
+      token: result.token,
+      user: result.user,
+    });
   }
-  res.status(201).json({
-    success: true,
-    message: 'Your account created successfully! Please login.',
-    token: result.token,
-    user: result.user,
+
+  return res.status(405).json({
+    success: false,
+    code: 'METHOD_NOT_ALLOWED',
+    message: `HTTP Method ${req.method} not allowed on register endpoint. Please use POST or GET.`,
   });
 });
 
-apiRouter.post('/auth/login', (req: Request, res: Response) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required.' });
+apiRouter.all(['/auth/login', '/login'], (req: Request, res: Response) => {
+  if (req.method === 'GET') {
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+        ? authHeader.substring(7).trim()
+        : (authHeader as string).trim();
+      const session = db.verifySessionToken(token);
+      if (session) {
+        return res.json({
+          success: true,
+          authenticated: true,
+          user: session.user,
+          message: 'Active candidate session verified.',
+        });
+      }
+    }
+    return res.json({
+      success: true,
+      authenticated: false,
+      message: 'Candidate Authentication Gateway is ready. Submit POST request with email/phone and password.',
+      supportedMethods: ['GET', 'POST', 'OPTIONS'],
+    });
   }
-  const result = db.loginCandidate(email, password);
-  if (!result.success) {
-    return res.status(401).json(result);
+
+  if (req.method === 'POST') {
+    const { email, phone, username, password } = req.body || {};
+    const identifier = email || phone || username;
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, message: 'Email/phone and password are required.' });
+    }
+    const result = db.loginCandidate(identifier, password);
+    if (!result.success) {
+      return res.status(401).json(result);
+    }
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      token: result.token,
+      user: result.user,
+    });
   }
-  res.json({
-    success: true,
-    message: 'Login successful',
-    token: result.token,
-    user: result.user,
+
+  return res.status(405).json({
+    success: false,
+    code: 'METHOD_NOT_ALLOWED',
+    message: `HTTP Method ${req.method} not allowed on login endpoint. Please use POST or GET.`,
   });
+});
+
+// Candidate and Admin Session Verification and Logout
+apiRouter.all(['/auth/logout', '/auth/admin/logout'], (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
+  if (authHeader) {
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.substring(7).trim()
+      : (authHeader as string).trim();
+    if (token && db.sessions[token]) {
+      delete db.sessions[token];
+    }
+  }
+  return res.json({ success: true, message: 'Signed out successfully.' });
+});
+
+apiRouter.all(['/auth/me', '/auth/session', '/auth/status'], (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
+  if (!authHeader) {
+    return res.json({ success: false, authenticated: false, user: null });
+  }
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+    ? authHeader.substring(7).trim()
+    : (authHeader as string).trim();
+  const session = db.verifySessionToken(token);
+  if (!session) {
+    return res.json({ success: false, authenticated: false, user: null });
+  }
+  return res.json({ success: true, authenticated: true, user: session.user });
 });
 
 // Candidate Mistakes Engine API
@@ -777,8 +908,15 @@ apiRouter.post('/monetization/track', (req: Request, res: Response) => {
   res.json({ success: true, data: updatedStats });
 });
 
-apiRouter.put('/mock-tests/:id/pricing', requireAdminAuth, (req: Request, res: Response) => {
-  const { isFree, priceInr = 0 } = req.body;
+apiRouter.all('/mock-tests/:id/pricing', requireAdminAuth, (req: Request, res: Response) => {
+  if (req.method !== 'PUT' && req.method !== 'POST') {
+    return res.status(405).json({
+      success: false,
+      code: 'METHOD_NOT_ALLOWED',
+      message: `HTTP Method ${req.method} not allowed on mock pricing endpoint. Supported: PUT, POST.`,
+    });
+  }
+  const { isFree, priceInr = 0 } = req.body || {};
   const success = db.updateMockTestPricing(req.params.id, Boolean(isFree), Number(priceInr));
   if (!success) {
     return res.status(404).json({ success: false, message: 'Mock test not found.' });
@@ -1100,6 +1238,26 @@ Give practical guidance:
       model: 'SKTECH CBT Center Knowledge Base (Maps Grounding Fallback)',
       timestamp: new Date().toISOString(),
     },
+  });
+});
+
+// Fallback for any unknown API route on apiRouter
+apiRouter.all('*', (req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    code: 'ENDPOINT_NOT_FOUND',
+    message: `API endpoint ${req.method} ${req.originalUrl} not found.`,
+    availableKeyEndpoints: [
+      '/api/v1/health',
+      '/api/v1/specs',
+      '/api/v1/auth/admin/login',
+      '/api/v1/auth/login',
+      '/api/v1/auth/register',
+      '/api/v1/exams',
+      '/api/v1/mock-tests',
+      '/api/v1/questions',
+      '/api/v1/attempts/start',
+    ],
   });
 });
 

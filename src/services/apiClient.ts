@@ -23,7 +23,7 @@ import {
   CombinedMockPackage,
 } from '../types';
 
-const API_BASE = '/api/v1';
+const API_BASE: string = '/api/v1';
 
 let adminToken: string | null = null;
 let candidateToken: string | null = null;
@@ -68,10 +68,26 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
     ...(options?.headers as Record<string, string>),
   };
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  let response = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
     headers,
   });
+
+  // Resilient fallback: If 405 Method Not Allowed or 404 is encountered, attempt secondary root `/api`
+  if ((response.status === 405 || response.status === 404) && API_BASE !== '/api') {
+    try {
+      const fallbackResponse = await fetch(`/api${cleanEndpoint}`, {
+        ...options,
+        headers,
+      });
+      if (fallbackResponse.ok) {
+        return fallbackResponse.json();
+      }
+    } catch {
+      // Continue to default error handling
+    }
+  }
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
