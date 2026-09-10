@@ -310,7 +310,7 @@ export interface SystemMetrics {
   todayAttempts: number;
   todayRegistrations: number;
   serverHealth: 'HEALTHY' | 'DEGRADED';
-  databaseStatus: 'CONNECTED (PostgreSQL)' | 'ONLINE';
+  databaseStatus: string;
   storageUsageMb: number;
   apiVersion: string;
 }

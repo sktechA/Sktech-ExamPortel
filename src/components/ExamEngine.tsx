@@ -22,9 +22,12 @@ import {
   ShieldCheck,
   ExternalLink,
   Sparkles,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { MockTest, Question, ExamAttempt, AttemptAnswer, ResultScorecard } from '../types';
 import { api } from '../services/apiClient';
+import { playExamWarningChime, playFinalMinutePulse } from '../utils/audioAlerts';
 
 interface ExamEngineProps {
   test: MockTest;
@@ -56,9 +59,12 @@ export const ExamEngine: React.FC<ExamEngineProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [lastSavedTime, setLastSavedTime] = useState<string>('Just now');
 
-  // 5-Minute Warning Notification state (Section 10 & Examination Integrity Standards)
+  // 5-Minute Warning Notification & Sound Alert state (Section 10 & Examination Integrity Standards)
   const [hasTriggeredFiveMinWarning, setHasTriggeredFiveMinWarning] = useState<boolean>(false);
   const [showFiveMinWarningModal, setShowFiveMinWarningModal] = useState<boolean>(false);
+  const [isSoundMuted, setIsSoundMuted] = useState<boolean>(false);
+  const [hasTriggeredOneMinWarning, setHasTriggeredOneMinWarning] = useState<boolean>(false);
+  const [soundFeedbackTime, setSoundFeedbackTime] = useState<string | null>(null);
 
   // Secondary Milestone Non-Skippable Intermission Ad State
   const [hasTriggeredMilestoneAd, setHasTriggeredMilestoneAd] = useState<boolean>(false);
@@ -111,13 +117,25 @@ export const ExamEngine: React.FC<ExamEngineProps> = ({
     return () => clearInterval(timer);
   }, [showMilestoneAdModal]);
 
-  // 2. Trigger warning notification specifically when 5 minutes (300s) remain
+  // 2. Trigger warning notification and sound specifically when 5 minutes (300s) and 1 minute (60s) remain
   useEffect(() => {
     if (secondsRemaining <= 300 && secondsRemaining > 0 && !hasTriggeredFiveMinWarning) {
       setShowFiveMinWarningModal(true);
       setHasTriggeredFiveMinWarning(true);
+      if (!isSoundMuted) {
+        playExamWarningChime();
+        setSoundFeedbackTime(new Date().toLocaleTimeString());
+      }
     }
-  }, [secondsRemaining, hasTriggeredFiveMinWarning]);
+
+    if (secondsRemaining <= 60 && secondsRemaining > 0 && !hasTriggeredOneMinWarning) {
+      setHasTriggeredOneMinWarning(true);
+      if (!isSoundMuted) {
+        playFinalMinutePulse();
+        setSoundFeedbackTime(new Date().toLocaleTimeString());
+      }
+    }
+  }, [secondsRemaining, hasTriggeredFiveMinWarning, hasTriggeredOneMinWarning, isSoundMuted]);
 
   // 3. Milestone Ad non-skippable countdown timer
   useEffect(() => {
@@ -309,6 +327,15 @@ export const ExamEngine: React.FC<ExamEngineProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between -mx-4 -mt-6 sm:-mx-6 lg:-mx-8">
+      {/* 0. Top Ambient Visual Pulse Strip (Active in Final 5 Minutes) */}
+      {isLowTime && secondsRemaining > 0 && (
+        <div
+          id="exam-urgent-top-pulse-strip"
+          aria-hidden="true"
+          className="h-1 bg-gradient-to-r from-rose-600 via-amber-400 to-rose-600 animate-pulse w-full sticky top-0 z-40 shadow-xs"
+        />
+      )}
+
       {/* 1. Official Exam Header Bar */}
       <header className="bg-slate-900 text-white px-4 py-2.5 border-b border-slate-800 flex items-center justify-between shadow-md">
         <div className="flex items-center space-x-3">
@@ -320,7 +347,7 @@ export const ExamEngine: React.FC<ExamEngineProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3 sm:space-x-4">
           {/* Question Language Switcher */}
           <div className="flex items-center space-x-1.5 bg-slate-800 px-2.5 py-1 rounded border border-slate-700 text-xs">
             <Languages className="w-3.5 h-3.5 text-indigo-400" />
@@ -335,22 +362,77 @@ export const ExamEngine: React.FC<ExamEngineProps> = ({
             </select>
           </div>
 
-          {/* Countdown Clock */}
+          {/* Sound Notification Alert Toggle */}
           <button
-            id="exam-countdown-timer-btn"
+            id="exam-sound-notification-toggle"
+            type="button"
             onClick={() => {
-              if (isLowTime) setShowFiveMinWarningModal(true);
+              const nextMuted = !isSoundMuted;
+              setIsSoundMuted(nextMuted);
+              if (!nextMuted) {
+                playExamWarningChime(0.18);
+                setSoundFeedbackTime(new Date().toLocaleTimeString());
+              }
             }}
-            title={isLowTime ? 'Click to view 5-minute time warning details' : 'Time remaining'}
-            className={`flex items-center space-x-2 px-3 py-1 rounded font-mono font-bold text-xs sm:text-sm transition ${
-              isLowTime
-                ? 'bg-rose-900/80 text-rose-200 animate-pulse border border-rose-600 hover:bg-rose-900 cursor-pointer'
-                : 'bg-slate-800 text-emerald-400 border border-slate-700 cursor-default'
+            title={
+              isSoundMuted
+                ? '5-minute warning sound alert is muted (Click to enable)'
+                : '5-minute warning sound alert is active (Click to mute)'
+            }
+            className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center space-x-1 text-xs ${
+              isSoundMuted
+                ? 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                : 'bg-indigo-950/80 border-indigo-500/50 text-indigo-300 hover:text-white shadow-2xs'
             }`}
           >
-            <Clock className="w-4 h-4" />
-            <span>Time Left: {formatTime(secondsRemaining)}</span>
+            {isSoundMuted ? (
+              <VolumeX className="w-3.5 h-3.5" />
+            ) : (
+              <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+            )}
+            <span className="hidden xl:inline text-[10px] font-semibold">
+              {isSoundMuted ? 'Muted' : 'Audio On'}
+            </span>
           </button>
+
+          {/* Countdown Clock with Visual Pulse Animation */}
+          <div className="relative inline-flex items-center">
+            {isLowTime && (
+              <span
+                id="timer-visual-pulse-halo"
+                aria-hidden="true"
+                className="absolute -inset-1 rounded-xl bg-rose-500/40 animate-ping pointer-events-none"
+              />
+            )}
+            <button
+              id="exam-countdown-timer-btn"
+              onClick={() => {
+                if (isLowTime) setShowFiveMinWarningModal(true);
+              }}
+              title={
+                isLowTime
+                  ? 'FINAL 5 MINUTES: Click to view time management guidance and alert options'
+                  : 'Time remaining in current examination'
+              }
+              className={`relative flex items-center space-x-2 px-3 py-1.5 rounded-lg font-mono font-bold text-xs sm:text-sm transition z-10 ${
+                isLowTime
+                  ? 'bg-rose-950 text-rose-100 border-2 border-rose-500 shadow-lg shadow-rose-900/60 hover:bg-rose-900 cursor-pointer animate-pulse'
+                  : 'bg-slate-800 text-emerald-400 border border-slate-700 cursor-default'
+              }`}
+            >
+              {isLowTime ? (
+                <BellRing className="w-4 h-4 text-rose-300 animate-bounce" />
+              ) : (
+                <Clock className="w-4 h-4" />
+              )}
+              <span>Time Left: {formatTime(secondsRemaining)}</span>
+              {isLowTime && (
+                <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-1.5 py-0.5 rounded shadow-2xs hidden sm:inline-block">
+                  {secondsRemaining <= 60 ? 'FINAL 60s' : '5M WARN'}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -379,40 +461,61 @@ export const ExamEngine: React.FC<ExamEngineProps> = ({
         </div>
       </div>
 
-      {/* 2b. 5-Minute Low-Time Persistent Warning Banner */}
+      {/* 2b. 5-Minute Low-Time Persistent Warning Banner with Visual Pulse & Sound Controls */}
       {isLowTime && secondsRemaining > 0 && (
         <div
           id="five-min-warning-banner"
-          className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between text-xs text-amber-950 animate-in fade-in"
+          className="bg-rose-50 border-b border-rose-200 px-4 py-2 flex items-center justify-between text-xs text-rose-950 animate-in fade-in relative overflow-hidden shadow-xs"
         >
-          <div className="flex items-center space-x-2">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+          {/* Subtle animated background pulse accent */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-rose-500/5 animate-pulse pointer-events-none"
+          />
+
+          <div className="flex items-center space-x-2.5 z-10">
+            <span className="flex h-2.5 w-2.5 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
             </span>
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span className="font-bold text-rose-900">
-              {examLanguage === 'hi' ? '5-मिनट चेतावनी:' : '5-Minute Warning:'}
+            <span className="font-extrabold text-rose-900 uppercase tracking-wide">
+              {examLanguage === 'hi' ? 'समय चेतावनी (5 मिनट):' : 'Final 5-Minute Warning:'}
             </span>
-            <span className="text-slate-800 hidden sm:inline">
+            <span className="text-slate-800 hidden md:inline">
               {examLanguage === 'hi'
                 ? `सत्र में केवल ${formatTime(secondsRemaining)} शेष हैं। परीक्षा 00:00 पर स्वतः सबमिट हो जाएगी।`
-                : `Only ${formatTime(secondsRemaining)} remaining in this session. Exam will auto-submit at 00:00.`}
+                : `Only ${formatTime(secondsRemaining)} remaining. Test will automatically submit when timer reaches 00:00.`}
             </span>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5 z-10">
+            {/* Play Sound Button */}
+            <button
+              id="replay-warning-sound-banner-btn"
+              type="button"
+              onClick={() => {
+                playExamWarningChime();
+                setSoundFeedbackTime(new Date().toLocaleTimeString());
+              }}
+              className="px-2 py-1 rounded bg-white hover:bg-rose-100 text-rose-800 font-bold text-[11px] border border-rose-300 shadow-2xs transition flex items-center space-x-1 cursor-pointer"
+              title="Play Warning Chime Sound"
+            >
+              <Volume2 className="w-3.5 h-3.5 text-rose-700" />
+              <span className="hidden sm:inline">Play Sound</span>
+            </button>
+
             <button
               id="view-warning-details-btn"
               onClick={() => setShowFiveMinWarningModal(true)}
-              className="text-[11px] font-bold text-amber-900 underline hover:text-amber-700 cursor-pointer"
+              className="text-[11px] font-bold text-rose-900 underline hover:text-rose-700 cursor-pointer"
             >
-              {examLanguage === 'hi' ? 'विवरण देखें' : 'View Warning'}
+              {examLanguage === 'hi' ? 'विवरण देखें' : 'View Guidelines'}
             </button>
             <button
               id="quick-submit-banner-btn"
               onClick={() => setShowSubmitModal(true)}
-              className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] shadow-2xs transition cursor-pointer"
+              className="px-3 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] shadow-xs transition cursor-pointer"
             >
               {examLanguage === 'hi' ? 'सबमिट करें' : 'Review & Submit'}
             </button>
@@ -732,36 +835,109 @@ export const ExamEngine: React.FC<ExamEngineProps> = ({
               </button>
             </div>
 
-            {/* Countdown Badge */}
-            <div className="bg-amber-50 rounded-xl p-3.5 border border-amber-200 flex items-center justify-between text-amber-950">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-amber-700 shrink-0" />
-                <span className="text-xs font-semibold">
-                  {examLanguage === 'hi' ? 'शेष परीक्षा समय:' : 'Time Left in Exam:'}
+            {/* Countdown Badge with Visual Pulse Animation */}
+            <div className="bg-rose-50 rounded-xl p-3.5 border border-rose-200 flex items-center justify-between text-rose-950 shadow-2xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center text-rose-700">
+                  <Clock className="w-4 h-4 animate-spin-slow" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold block text-rose-900">
+                    {examLanguage === 'hi' ? 'शेष परीक्षा समय:' : 'Time Left in Exam:'}
+                  </span>
+                  <span className="text-[10px] text-rose-700">
+                    {secondsRemaining <= 60 ? 'Final 60 Seconds Countdown' : 'Final 5 Minutes Window'}
+                  </span>
+                </div>
+              </div>
+              <div className="relative inline-flex items-center">
+                <span className="animate-ping absolute -inset-1 rounded-lg bg-rose-500/30"></span>
+                <span className="font-mono font-black text-base sm:text-lg text-rose-700 bg-white px-3 py-1 rounded-lg border-2 border-rose-400 shadow-sm relative z-10 animate-pulse">
+                  {formatTime(secondsRemaining)}
                 </span>
               </div>
-              <span className="font-mono font-black text-base sm:text-lg text-rose-700 bg-white px-2.5 py-0.5 rounded border border-amber-300 shadow-2xs">
-                {formatTime(secondsRemaining)}
-              </span>
             </div>
 
-            {/* Advisory Notes */}
-            <div className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
-              <p className="font-medium">
+            {/* Sound Notification Status & Controls Bar */}
+            <div className="bg-amber-50/90 rounded-xl p-3 border border-amber-200/80 flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-2 text-amber-950">
+                {isSoundMuted ? (
+                  <VolumeX className="w-4 h-4 text-amber-600 shrink-0" />
+                ) : (
+                  <Volume2 className="w-4 h-4 text-amber-700 shrink-0 animate-pulse" />
+                )}
+                <div>
+                  <span className="font-bold block text-[11px] text-amber-900">
+                    {isSoundMuted
+                      ? (examLanguage === 'hi' ? 'ध्वनि सूचना: म्यूट है' : 'Warning Sound: Muted')
+                      : (examLanguage === 'hi' ? 'चेतावनी ध्वनि सूचना बजाई गई' : 'Warning Sound Alert Played')}
+                  </span>
+                  <span className="text-[10px] text-amber-700">
+                    {isSoundMuted
+                      ? (examLanguage === 'hi' ? 'ध्वनि सूचना सक्रिय करने के लिए अनम्यूट करें' : 'Audio chime is currently muted')
+                      : (soundFeedbackTime ? `Chimed at ${soundFeedbackTime}` : 'Audible alert at 5-minute milestone')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  id="modal-replay-sound-btn"
+                  onClick={() => {
+                    playExamWarningChime();
+                    setSoundFeedbackTime(new Date().toLocaleTimeString());
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-amber-900 font-bold text-[10px] border border-amber-300 shadow-2xs transition flex items-center space-x-1 cursor-pointer"
+                >
+                  <Volume2 className="w-3 h-3 text-amber-700" />
+                  <span>{examLanguage === 'hi' ? 'पुनः बजाएं' : 'Replay Chime'}</span>
+                </button>
+                <button
+                  type="button"
+                  id="modal-toggle-mute-btn"
+                  onClick={() => {
+                    const next = !isSoundMuted;
+                    setIsSoundMuted(next);
+                    if (!next) {
+                      playExamWarningChime(0.15);
+                      setSoundFeedbackTime(new Date().toLocaleTimeString());
+                    }
+                  }}
+                  className="p-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition cursor-pointer"
+                  title={isSoundMuted ? 'Unmute Audio' : 'Mute Audio'}
+                >
+                  {isSoundMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-600" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-600" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Advisory Notes & Time Management Guidance */}
+            <div className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+              <p className="font-medium text-slate-800">
                 {examLanguage === 'hi'
-                  ? 'कृपया ध्यान दें: परीक्षा 00:00 होते ही स्वतः समाप्त होकर सबमिट हो जाएगी। अंतिम सबमिशन से पूर्व सुनिश्चित करें कि आपके सभी उत्तर सहेजे गए हैं।'
-                  : 'Important: The exam will automatically close and submit when the timer reaches 00:00. Please ensure all your responses are saved before time expires.'}
+                  ? 'समय प्रबंधन सलाह: परीक्षा 00:00 पर अपने आप लॉक और सबमिट हो जाएगी। अंतिम 5 मिनट में समीक्षा के लिए चिह्नित प्रश्नों की जांच करें और नकारात्मक अंकन से बचने के लिए अनिश्चित प्रश्नों पर अतिरिक्त समय न गंवाएं।'
+                  : 'Time Management Advisory: The exam automatically locks and submits at 00:00. Use these final 5 minutes to verify your Marked for Review questions and ensure responses are saved.'}
               </p>
-              <div className="flex items-center justify-between text-[11px] pt-1 text-slate-600 border-t border-slate-200">
-                <span>
-                  <strong>Answered:</strong> {stats.ANSWERED + stats.ANSWERED_MARKED}
-                </span>
-                <span>
-                  <strong>Marked:</strong> {stats.MARKED_REVIEW}
-                </span>
-                <span>
-                  <strong>Unanswered:</strong> {stats.NOT_ANSWERED + stats.NOT_VISITED}
-                </span>
+              <div className="grid grid-cols-3 gap-1.5 pt-1 text-center text-[11px]">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-1.5 text-emerald-900">
+                  <span className="block font-black text-emerald-800 text-xs sm:text-sm">
+                    {stats.ANSWERED + stats.ANSWERED_MARKED}
+                  </span>
+                  <span className="text-[10px] text-emerald-700">Answered</span>
+                </div>
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-1.5 text-purple-900">
+                  <span className="block font-black text-purple-800 text-xs sm:text-sm">
+                    {stats.MARKED_REVIEW}
+                  </span>
+                  <span className="text-[10px] text-purple-700">Marked</span>
+                </div>
+                <div className="bg-rose-50 border border-rose-200 rounded-lg p-1.5 text-rose-900">
+                  <span className="block font-black text-rose-800 text-xs sm:text-sm">
+                    {stats.NOT_ANSWERED + stats.NOT_VISITED}
+                  </span>
+                  <span className="text-[10px] text-rose-700">Unanswered</span>
+                </div>
               </div>
             </div>
 

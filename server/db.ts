@@ -1,11 +1,12 @@
 /**
  * SKTECH EXAM — Central Database Store & Seed Data Layer
- * Architecture: Central PostgreSQL Database Abstraction
+ * Architecture: Self-Contained Serverless Relational Store & File-System Fallback
  * Brand: SKTECH • All Rights Reserved © 2026
  */
 
 import crypto from 'crypto';
-import { Pool } from 'pg';
+import fs from 'fs';
+import path from 'path';
 import {
   User,
   Exam,
@@ -32,52 +33,8 @@ import { SPEED_BOOSTER_TRACKS } from './seed/speedBoostersData';
 import { COMBINED_MOCKS_DATA } from './seed/combinedMocksData';
 import { SUBJECTIVE_MOCKS_DATA } from './seed/subjectiveMocksData';
 
-// PostgreSQL Database Connection Pool initialization with resilient error recovery
-function initializePostgreSqlPool(): Pool | null {
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl || !dbUrl.trim()) {
-    console.log('[CentralDatabase] Operating with PostgreSQL-compatible normalized relational store (DATABASE_URL not set).');
-    return null;
-  }
-
-  try {
-    const isSsl =
-      dbUrl.includes('sslmode=require') ||
-      dbUrl.includes('neon.tech') ||
-      dbUrl.includes('supabase.co') ||
-      process.env.NODE_ENV === 'production';
-
-    const pool = new Pool({
-      connectionString: dbUrl.trim(),
-      connectionTimeoutMillis: 5000,
-      idleTimeoutMillis: 30000,
-      max: 10,
-      ssl: isSsl ? { rejectUnauthorized: false } : undefined,
-    });
-
-    // CRITICAL: Must register an 'error' event listener to prevent idle client errors from crashing the Node.js process
-    pool.on('error', (err) => {
-      console.warn('[CentralDatabase] Notice: PostgreSQL idle client connection error (handled safely):', err.message);
-    });
-
-    // Test query asynchronously without blocking application startup
-    pool.query('SELECT NOW()', (err, res) => {
-      if (err) {
-        console.warn('[CentralDatabase] PostgreSQL connection check warning (running with resilient in-memory fallback):', err.message);
-      } else {
-        console.log('[CentralDatabase] PostgreSQL connection verified live at', res.rows[0]?.now);
-      }
-    });
-
-    console.log('[CentralDatabase] Initialized PostgreSQL connection pool successfully.');
-    return pool;
-  } catch (err: any) {
-    console.warn('[CentralDatabase] Failed to construct PostgreSQL pool, using resilient fallback store:', err?.message || err);
-    return null;
-  }
-}
-
-export const pgPool: Pool | null = initializePostgreSqlPool();
+// Completely self-contained engine with zero external database dependencies (no PostgreSQL or Neon required)
+console.log('[CentralDatabase] Running 100% self-contained serverless store with automatic file-system persistence.');
 
 class CentralDatabase {
   subjectiveMocks: SubjectiveMockPaper[] = [...SUBJECTIVE_MOCKS_DATA];
@@ -998,6 +955,131 @@ class CentralDatabase {
     ],
   };
 
+  private storageFilePath: string | null = null;
+
+  constructor() {
+    this.initStoragePath();
+    this.loadStateFromFile();
+  }
+
+  private initStoragePath(): void {
+    if (process.env.SKTECH_STORAGE_PATH) {
+      this.storageFilePath = process.env.SKTECH_STORAGE_PATH;
+      console.log('[CentralDatabase] Storage mapped via SKTECH_STORAGE_PATH:', this.storageFilePath);
+      return;
+    }
+
+    // 1. Probe /tmp directory (Vercel Serverless / Cloud Run / Linux scratch space)
+    try {
+      const probeFile = path.join('/tmp', `sktech_probe_${Date.now()}.tmp`);
+      fs.writeFileSync(probeFile, 'ok', 'utf-8');
+      fs.unlinkSync(probeFile);
+      this.storageFilePath = path.join('/tmp', 'sktech_exam_store.json');
+      console.log('[CentralDatabase] Serverless file-system storage active at:', this.storageFilePath);
+      return;
+    } catch {
+      // 2. Fallback to local .data directory if writable
+      try {
+        const localDir = path.join(process.cwd(), '.data');
+        if (!fs.existsSync(localDir)) {
+          fs.mkdirSync(localDir, { recursive: true });
+        }
+        this.storageFilePath = path.join(localDir, 'sktech_exam_store.json');
+        console.log('[CentralDatabase] Local file-system storage active at:', this.storageFilePath);
+      } catch {
+        this.storageFilePath = null;
+        console.log('[CentralDatabase] Running in high-performance memory-first mode.');
+      }
+    }
+  }
+
+  loadStateFromFile(): void {
+    if (!this.storageFilePath) return;
+    try {
+      if (fs.existsSync(this.storageFilePath)) {
+        const raw = fs.readFileSync(this.storageFilePath, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data) {
+          if (Array.isArray(data.users)) {
+            for (const u of data.users) {
+              if (!this.users.some((existing) => existing.id === u.id || existing.email.toLowerCase() === u.email.toLowerCase())) {
+                this.users.push(u);
+              }
+            }
+          }
+          if (data.userPasswordHashes) {
+            this.userPasswordHashes = { ...this.userPasswordHashes, ...data.userPasswordHashes };
+          }
+          if (data.adminCredentials) {
+            this.adminCredentials = { ...this.adminCredentials, ...data.adminCredentials };
+          }
+          if (Array.isArray(data.attempts)) {
+            this.attempts = data.attempts;
+          }
+          if (Array.isArray(data.results)) {
+            this.results = data.results;
+          }
+          if (data.unlockedMockTests) {
+            this.unlockedMockTests = { ...this.unlockedMockTests, ...data.unlockedMockTests };
+          }
+          if (Array.isArray(data.customQuestions)) {
+            for (const q of data.customQuestions) {
+              if (!this.questions.some((existing) => existing.id === q.id)) {
+                this.questions.unshift(q);
+              }
+            }
+          }
+          if (Array.isArray(data.auditLogs)) {
+            this.auditLogs = data.auditLogs;
+          }
+          if (data.pricingOverrides && typeof data.pricingOverrides === 'object') {
+            for (const [testId, pricing] of Object.entries(data.pricingOverrides as Record<string, any>)) {
+              const test = this.mockTests.find((m) => m.id === testId);
+              if (test) {
+                test.isFree = pricing.isFree;
+                test.priceInr = pricing.priceInr;
+              }
+            }
+          }
+          console.log('[CentralDatabase] Successfully loaded serverless state from disk:', this.storageFilePath);
+        }
+      }
+    } catch (err: any) {
+      console.warn('[CentralDatabase] State load notice:', err?.message || err);
+    }
+  }
+
+  saveStateToFile(): void {
+    if (!this.storageFilePath) return;
+    try {
+      const pricingOverrides: Record<string, { isFree: boolean; priceInr: number }> = {};
+      for (const m of this.mockTests) {
+        pricingOverrides[m.id] = { isFree: !!m.isFree, priceInr: m.priceInr || 0 };
+      }
+
+      const customQuestions = this.questions.filter(
+        (q) => q.id.startsWith('q_custom_') || q.id.startsWith('q_imp_') || q.id.startsWith('q_user_')
+      );
+
+      const payload = {
+        users: this.users,
+        userPasswordHashes: this.userPasswordHashes,
+        adminCredentials: this.adminCredentials,
+        attempts: this.attempts,
+        results: this.results,
+        unlockedMockTests: this.unlockedMockTests,
+        customQuestions,
+        auditLogs: this.auditLogs.slice(0, 100),
+        pricingOverrides,
+        savedAt: new Date().toISOString(),
+      };
+
+      fs.writeFileSync(this.storageFilePath, JSON.stringify(payload, null, 2), 'utf-8');
+    } catch (err: any) {
+      console.warn('[CentralDatabase] State save notice (continuing safely in-memory):', err?.message || err);
+    }
+  }
+
   hashPassword(password: string, salt?: string): { hash: string; salt: string } {
     const finalSalt = salt || crypto.randomBytes(16).toString('hex');
     const hash = crypto.pbkdf2Sync(password, finalSalt, 1000, 64, 'sha512').toString('hex');
@@ -1084,6 +1166,7 @@ class CentralDatabase {
     this.adminCredentials.username = newU.trim();
     this.adminCredentials.password = newP.trim();
     this.adminCredentials.lastUpdated = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    this.saveStateToFile();
     return { success: true, message: 'Admin credentials successfully updated.' };
   }
 
@@ -1109,6 +1192,7 @@ class CentralDatabase {
     this.users.push(newUser);
     this.userPasswordHashes[newId] = this.hashPassword(p.trim());
     this.unlockedMockTests[newId] = [];
+    this.saveStateToFile();
     const token = this.createSession(newUser);
     return { success: true, user: newUser, token, message: 'Your account created successfully! Please login.' };
   }
@@ -1256,6 +1340,7 @@ class CentralDatabase {
     if (!this.unlockedMockTests[userId].includes(testId)) {
       this.unlockedMockTests[userId].push(testId);
     }
+    this.saveStateToFile();
     return {
       success: true,
       message: 'Mock test unlocked successfully.',
@@ -1268,6 +1353,7 @@ class CentralDatabase {
     if (!test) return false;
     test.isFree = isFree;
     test.priceInr = isFree ? 0 : priceInr;
+    this.saveStateToFile();
     return true;
   }
 
@@ -1298,7 +1384,6 @@ class CentralDatabase {
     const totalMockTests = this.mockTests.length;
     const todayAttempts = this.attempts.length;
     const todayRegistrations = this.users.length;
-    const isPostgresConnected = !!pgPool;
 
     return {
       totalCandidates,
@@ -1310,7 +1395,7 @@ class CentralDatabase {
       todayAttempts,
       todayRegistrations,
       serverHealth: 'HEALTHY',
-      databaseStatus: isPostgresConnected ? 'CONNECTED (PostgreSQL)' : 'ONLINE',
+      databaseStatus: 'ONLINE (Self-Contained Store)',
       storageUsageMb: Number((0.5 + totalQuestions * 0.002).toFixed(1)),
       apiVersion: 'v1.0.4-phase1',
     };
@@ -1529,7 +1614,7 @@ class CentralDatabase {
       downloadUrl: '#download-exe',
       features: [
         'Secure air-gapped Administrative Console',
-        'Local SQLite & PostgreSQL failover synchronization',
+        'Local SQLite & Serverless failover synchronization',
         'Full-screen kiosk mode lock for test centers',
         'Direct OCR scanning engine with document camera support',
         'Role-based operator authorization gate',

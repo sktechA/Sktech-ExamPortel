@@ -6,6 +6,7 @@
 
 import express, { Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { apiRouter } from './server/api';
 
@@ -75,6 +76,18 @@ async function startServer() {
           code: 'API_ENDPOINT_NOT_FOUND',
           message: `Endpoint ${req.method} ${req.originalUrl} not found.`,
         });
+      }
+      if (req.path.startsWith('/admin')) {
+        const adminHtml = path.join(distPath, 'admin.html');
+        if (fs.existsSync(adminHtml)) {
+          return res.sendFile(adminHtml);
+        }
+      }
+      if (req.path.startsWith('/candidate')) {
+        const candidateHtml = path.join(distPath, 'candidate.html');
+        if (fs.existsSync(candidateHtml)) {
+          return res.sendFile(candidateHtml);
+        }
       }
       res.sendFile(path.join(distPath, 'index.html'));
     });

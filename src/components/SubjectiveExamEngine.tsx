@@ -27,8 +27,12 @@ import {
   Send,
   HelpCircle,
   ShieldCheck,
+  BellRing,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { SubjectiveMockPaper, SubjectiveQuestion } from '../types';
+import { playExamWarningChime, playFinalMinutePulse } from '../utils/audioAlerts';
 
 interface SubjectiveExamEngineProps {
   paper: SubjectiveMockPaper;
@@ -53,6 +57,9 @@ export const SubjectiveExamEngine: React.FC<SubjectiveExamEngineProps> = ({
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [lastSavedTime, setLastSavedTime] = useState<string>('Just now');
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [isSoundMuted, setIsSoundMuted] = useState<boolean>(false);
+  const [hasTriggeredFiveMinSound, setHasTriggeredFiveMinSound] = useState<boolean>(false);
+  const [hasTriggeredOneMinSound, setHasTriggeredOneMinSound] = useState<boolean>(false);
 
   const currentQ: SubjectiveQuestion = paper.questions[currentQIndex] || paper.questions[0];
   const currentAnswer = answers[currentQ.id] || '';
@@ -72,6 +79,23 @@ export const SubjectiveExamEngine: React.FC<SubjectiveExamEngineProps> = ({
     }, 1000);
     return () => clearInterval(timer);
   }, [isSubmitted]);
+
+  // Trigger warning sound chime when 5 minutes (300s) and 1 minute remain
+  useEffect(() => {
+    if (isSubmitted) return;
+    if (timeRemainingSeconds <= 300 && timeRemainingSeconds > 0 && !hasTriggeredFiveMinSound) {
+      setHasTriggeredFiveMinSound(true);
+      if (!isSoundMuted) {
+        playExamWarningChime();
+      }
+    }
+    if (timeRemainingSeconds <= 60 && timeRemainingSeconds > 0 && !hasTriggeredOneMinSound) {
+      setHasTriggeredOneMinSound(true);
+      if (!isSoundMuted) {
+        playFinalMinutePulse();
+      }
+    }
+  }, [timeRemainingSeconds, isSubmitted, hasTriggeredFiveMinSound, hasTriggeredOneMinSound, isSoundMuted]);
 
   // Autosave simulated trigger
   const handleAnswerChange = (val: string) => {
@@ -150,17 +174,59 @@ export const SubjectiveExamEngine: React.FC<SubjectiveExamEngineProps> = ({
         </div>
 
         {/* Center & Right Controls */}
-        <div className="flex items-center space-x-3 sm:space-x-5">
-          {/* Countdown Clock */}
-          <div
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border font-mono text-xs sm:text-sm font-bold shadow-xs ${
-              timeRemainingSeconds < 300
-                ? 'bg-rose-950/80 border-rose-600 text-rose-300 animate-pulse'
-                : 'bg-slate-900 border-slate-700 text-amber-400'
+        <div className="flex items-center space-x-2.5 sm:space-x-4">
+          {/* Sound Notification Alert Toggle */}
+          <button
+            id="subjective-sound-notification-toggle"
+            type="button"
+            onClick={() => {
+              const nextMuted = !isSoundMuted;
+              setIsSoundMuted(nextMuted);
+              if (!nextMuted) {
+                playExamWarningChime(0.18);
+              }
+            }}
+            title={
+              isSoundMuted
+                ? '5-minute warning sound alert is muted (Click to enable)'
+                : '5-minute warning sound alert is active (Click to mute)'
+            }
+            className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center space-x-1 text-xs ${
+              isSoundMuted
+                ? 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                : 'bg-indigo-950/80 border-indigo-500/50 text-indigo-300 hover:text-white shadow-2xs'
             }`}
           >
-            <Clock className="w-4 h-4 text-amber-400" />
-            <span>{formatTime(timeRemainingSeconds)}</span>
+            {isSoundMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-indigo-400" />}
+          </button>
+
+          {/* Countdown Clock with Visual Pulse */}
+          <div className="relative inline-flex items-center">
+            {timeRemainingSeconds <= 300 && (
+              <span
+                aria-hidden="true"
+                className="absolute -inset-1 rounded-xl bg-rose-500/40 animate-ping pointer-events-none"
+              />
+            )}
+            <div
+              className={`relative z-10 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border font-mono text-xs sm:text-sm font-bold shadow-xs ${
+                timeRemainingSeconds <= 300
+                  ? 'bg-rose-950 text-rose-100 border-2 border-rose-500 animate-pulse'
+                  : 'bg-slate-900 border-slate-700 text-amber-400'
+              }`}
+            >
+              {timeRemainingSeconds <= 300 ? (
+                <BellRing className="w-4 h-4 text-rose-300 animate-bounce" />
+              ) : (
+                <Clock className="w-4 h-4 text-amber-400" />
+              )}
+              <span>{formatTime(timeRemainingSeconds)}</span>
+              {timeRemainingSeconds <= 300 && (
+                <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-1.5 py-0.5 rounded ml-1 hidden sm:inline-block">
+                  {timeRemainingSeconds <= 60 ? '60s' : '5m'}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Bilingual Switcher */}

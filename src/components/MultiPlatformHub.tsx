@@ -28,17 +28,11 @@ import { api } from '../services/apiClient';
 import { MultiPlatformDeployment } from '../types';
 
 interface MultiPlatformHubProps {
-  portalMode: 'UNIFIED' | 'CANDIDATE_ONLY' | 'ADMIN_ONLY';
-  onPortalModeChange: (mode: 'UNIFIED' | 'CANDIDATE_ONLY' | 'ADMIN_ONLY') => void;
-  onNavigateToCandidate: () => void;
-  onNavigateToAdmin: () => void;
+  onNavigateToCandidate?: () => void;
 }
 
 export const MultiPlatformHub: React.FC<MultiPlatformHubProps> = ({
-  portalMode,
-  onPortalModeChange,
   onNavigateToCandidate,
-  onNavigateToAdmin,
 }) => {
   const [deployments, setDeployments] = useState<MultiPlatformDeployment[]>([]);
   const [activePlatformTab, setActivePlatformTab] = useState<'ALL' | 'WEB' | 'WINDOWS_EXE' | 'ANDROID_APK'>('ALL');
@@ -89,83 +83,62 @@ export const MultiPlatformHub: React.FC<MultiPlatformHubProps> = ({
         </div>
       </div>
 
-      {/* 2. Dual Portal Isolation Control */}
+      {/* 2. Candidate Platform Ecosystem */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div>
             <h3 className="font-extrabold text-base text-slate-900 flex items-center space-x-2">
               <Layers className="w-5 h-5 text-indigo-600" />
-              <span>Dual Portal Isolation Environment Switch</span>
+              <span>Dedicated Candidate Ecosystem Channels</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Strictly enforce complete isolation between candidate experience (zero administrative leaks) and administrative console.
+              Access real-time mock test engines across all candidate devices with synchronized progress and analytics.
             </p>
           </div>
           <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
-            Active: {portalMode}
+            Active: Candidate Portal
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <button
-            onClick={() => onPortalModeChange('CANDIDATE_ONLY')}
-            className={`p-4 rounded-2xl border text-left transition cursor-pointer ${
-              portalMode === 'CANDIDATE_ONLY'
-                ? 'border-indigo-600 bg-indigo-50/50 shadow-md ring-1 ring-indigo-600'
-                : 'border-slate-200 hover:border-slate-300 bg-white'
-            }`}
-          >
+          <div className="p-4 rounded-2xl border border-indigo-600 bg-indigo-50/50 shadow-md ring-1 ring-indigo-600 text-left">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-extrabold text-xs text-slate-900">1. User / Candidate Portal</span>
-              <Smartphone className="w-4 h-4 text-indigo-600" />
+              <span className="font-extrabold text-xs text-slate-900">1. Candidate Web Portal</span>
+              <Globe className="w-4 h-4 text-indigo-600" />
             </div>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Completely isolated candidate-facing environment. Zero admin visibility, pure test-taking, Clean Ads, and study intelligence.
+              Full-featured browser examination portal with real-time timers, negative marking, bilingual switching, and instant scorecard analytics.
             </p>
             <div className="mt-3 text-[10px] font-bold text-indigo-600 uppercase">
-              Isolated Candidate Scope →
+              Current Live App • Instant Access
             </div>
-          </button>
+          </div>
 
-          <button
-            onClick={() => onPortalModeChange('ADMIN_ONLY')}
-            className={`p-4 rounded-2xl border text-left transition cursor-pointer ${
-              portalMode === 'ADMIN_ONLY'
-                ? 'border-indigo-600 bg-indigo-50/50 shadow-md ring-1 ring-indigo-600'
-                : 'border-slate-200 hover:border-slate-300 bg-white'
-            }`}
-          >
+          <div className="p-4 rounded-2xl border border-slate-200 bg-white text-left">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-extrabold text-xs text-slate-900">2. Admin Control Portal</span>
-              <Lock className="w-4 h-4 text-indigo-600" />
+              <span className="font-extrabold text-xs text-slate-900">2. Desktop Test Engine</span>
+              <Laptop className="w-4 h-4 text-slate-600" />
             </div>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Secured administrative console. Operator provisioning, bilingual question bank, bulk OCR, test pricing, and audit logs.
+              Air-gapped Windows application (.NET 8 WPF) designed for proctored computer labs and offline full-length mock simulations.
             </p>
-            <div className="mt-3 text-[10px] font-bold text-indigo-600 uppercase">
-              Isolated Admin Scope →
+            <div className="mt-3 text-[10px] font-bold text-slate-600 uppercase">
+              Windows Client (.EXE)
             </div>
-          </button>
+          </div>
 
-          <button
-            onClick={() => onPortalModeChange('UNIFIED')}
-            className={`p-4 rounded-2xl border text-left transition cursor-pointer ${
-              portalMode === 'UNIFIED'
-                ? 'border-indigo-600 bg-indigo-50/50 shadow-md ring-1 ring-indigo-600'
-                : 'border-slate-200 hover:border-slate-300 bg-white'
-            }`}
-          >
+          <div className="p-4 rounded-2xl border border-slate-200 bg-white text-left">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-extrabold text-xs text-slate-900">3. Unified Hybrid Mode</span>
-              <Globe className="w-4 h-4 text-emerald-600" />
+              <span className="font-extrabold text-xs text-slate-900">3. Candidate Mobile App</span>
+              <Smartphone className="w-4 h-4 text-slate-600" />
             </div>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              Full hybrid developer architecture allowing instant toggle between Candidate testing views and Admin management console.
+              React Native mobile app for Android devices. Features 15-minute speed sprints, mistake book revision, and daily current affairs.
             </p>
-            <div className="mt-3 text-[10px] font-bold text-emerald-600 uppercase">
-              Integrated Workspace →
+            <div className="mt-3 text-[10px] font-bold text-slate-600 uppercase">
+              Android Package (.APK)
             </div>
-          </button>
+          </div>
         </div>
       </div>
 

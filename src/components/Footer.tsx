@@ -7,11 +7,10 @@ import React from 'react';
 import { ShieldCheck, Database, Cpu, Laptop, Smartphone } from 'lucide-react';
 
 interface FooterProps {
-  currentRoute?: '/' | '/admin';
-  onNavigateRoute?: (route: '/' | '/admin') => void;
+  currentRoute?: string;
 }
 
-export const Footer: React.FC<FooterProps> = ({ currentRoute = '/', onNavigateRoute }) => {
+export const Footer: React.FC<FooterProps> = () => {
   return (
     <footer id="sktech-footer" className="bg-slate-900 text-slate-400 border-t border-slate-800 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -21,32 +20,12 @@ export const Footer: React.FC<FooterProps> = ({ currentRoute = '/', onNavigateRo
             <div className="flex items-center space-x-2 text-white">
               <span className="font-extrabold text-base tracking-tight">SKTECH EXAM</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">
-                PRO
+                PORTAL
               </span>
             </div>
             <p className="text-slate-400 text-xs leading-relaxed">
               Enterprise-grade Indian competitive-exam preparation platform powering Bank (IBPS, SBI, RRB), SSC (CGL, CHSL), State PSC (MPPSC), Police, and Railways test-takers nationwide.
             </p>
-            {/* Quick Link to Other Portal */}
-            {onNavigateRoute && (
-              <div className="pt-1">
-                {currentRoute === '/admin' ? (
-                  <button
-                    onClick={() => onNavigateRoute('/')}
-                    className="inline-flex items-center space-x-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
-                  >
-                    <span>← Switch to Candidate Portal (/)</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onNavigateRoute('/admin')}
-                    className="inline-flex items-center space-x-1.5 text-xs text-purple-400 hover:text-purple-300 font-semibold cursor-pointer"
-                  >
-                    <span>Staff & Admin Console (/admin) →</span>
-                  </button>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Col 2: Architecture Highlights */}
@@ -55,7 +34,7 @@ export const Footer: React.FC<FooterProps> = ({ currentRoute = '/', onNavigateRo
             <ul className="space-y-1.5 text-[11px]">
               <li className="flex items-center space-x-1.5">
                 <Database className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Single Central PostgreSQL DB</span>
+                <span>Self-Contained Serverless DB</span>
               </li>
               <li className="flex items-center space-x-1.5">
                 <Cpu className="w-3.5 h-3.5 text-blue-400" />
@@ -63,7 +42,7 @@ export const Footer: React.FC<FooterProps> = ({ currentRoute = '/', onNavigateRo
               </li>
               <li className="flex items-center space-x-1.5">
                 <Laptop className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Windows Admin Desktop (.NET 8 WPF)</span>
+                <span>Candidate Desktop Engine (.NET 8 WPF)</span>
               </li>
               <li className="flex items-center space-x-1.5">
                 <Smartphone className="w-3.5 h-3.5 text-purple-400" />

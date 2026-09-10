@@ -55,7 +55,7 @@ export const ArchitectureSpecs: React.FC = () => {
           SKTECH EXAM System Architecture & Blueprint
         </h1>
         <p className="text-xs text-slate-400 mt-1 max-w-3xl">
-          Lead Architect specification documenting the unified multi-client ecosystem (Web, Mobile, Windows Desktop EXE) powered by ONE central REST API and ONE central PostgreSQL database.
+          Lead Architect specification documenting the unified multi-client ecosystem (Web, Mobile, Windows Desktop EXE) powered by ONE central REST API and self-contained serverless relational database store.
         </p>
       </div>
 
@@ -103,7 +103,7 @@ export const ArchitectureSpecs: React.FC = () => {
                                     │
                          ┌──────────┴──────────┐
                          │ CENTRAL DATABASE    │
-                         │ (PostgreSQL + S3)   │
+                         │ (Serverless Store)  │
                          │ BACKGROUND WORKERS   │
                          └──────────┬──────────┘
                                     │
@@ -152,7 +152,7 @@ export const ArchitectureSpecs: React.FC = () => {
                 </div>
                 <div className="border border-slate-200 rounded-xl p-4 space-y-2">
                   <div className="font-bold text-emerald-700">Database & ORM</div>
-                  <p className="text-[11px]">PostgreSQL with Prisma/TypeORM abstraction. 28 normalized tables with foreign keys, composite indexes, and versioning.</p>
+                  <p className="text-[11px]">Self-contained serverless relational store with file-system persistence. 28 normalized schemas with zero external database setup required.</p>
                 </div>
                 <div className="border border-slate-200 rounded-xl p-4 space-y-2">
                   <div className="font-bold text-purple-700">Windows Admin Desktop EXE</div>
@@ -195,7 +195,7 @@ export const ArchitectureSpecs: React.FC = () => {
 │   ├── api-client/         # Strongly typed HTTP client
 │   └── ui/                 # Shared Tailwind design components
 ├── database/
-│   ├── migrations/         # PostgreSQL DDL migrations
+│   ├── migrations/         # Database schema migrations
 │   ├── schema.sql          # Canonical normalized database DDL
 │   └── seed/               # Production-grade seed data
 └── storage/                # Local abstraction for zero-cost dev`}
@@ -261,7 +261,7 @@ export const ArchitectureSpecs: React.FC = () => {
                 <span>F. Central REST API v1 Routing Architecture</span>
               </h2>
               <pre className="bg-slate-900 text-slate-200 p-4 rounded-xl font-mono text-[11px] overflow-x-auto leading-relaxed">
-{`GET  /api/v1/health             # Server health, PostgreSQL status, uptime
+{`GET  /api/v1/health             # Server health, Database status, uptime
 GET  /api/v1/exams              # List exams with category filter
 GET  /api/v1/exams/:id          # Exam syllabus and test series
 GET  /api/v1/questions          # Filter questions (subject, topic, difficulty)
@@ -385,12 +385,12 @@ GET  /api/v1/admin/overview     # Executive admin metrics and analytics`}
                 <span>M. ₹0 Cost Development & Free-First Deployment Plan (Section 4 & 66)</span>
               </h2>
               <p>
-                The platform works 100% locally on any standard Windows laptop with zero paid API keys:
+                The platform works 100% locally and deploys self-contained to Vercel with zero paid API keys:
               </p>
               <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                <li>Local PostgreSQL instance or containerized database.</li>
+                <li>Self-contained serverless file-system engine and in-memory store.</li>
                 <li>Local file system storage abstraction replacing cloud S3 during development.</li>
-                <li>Free tier deployment targets: Cloud Run container, Render / Supabase free tier PostgreSQL, and Vercel/Netlify for frontend assets.</li>
+                <li>Zero-config deployment target: Vercel serverless runtime and Cloud Run containers without external DATABASE_URL.</li>
               </ul>
             </div>
           )}
@@ -404,7 +404,7 @@ GET  /api/v1/admin/overview     # Executive admin metrics and analytics`}
               </h2>
               <div className="space-y-2">
                 {[
-                  { phase: 'Phase 1', title: 'Foundation (Monorepo, Express + Vite, PostgreSQL schema, Design System)', status: 'COMPLETED & VERIFIED' },
+                  { phase: 'Phase 1', title: 'Foundation (Monorepo, Express + Vite, Self-Contained Serverless DB, Design System)', status: 'COMPLETED & VERIFIED' },
                   { phase: 'Phase 2', title: 'Authentication (Candidate & Admin auth, RBAC, session rotation)', status: 'READY' },
                   { phase: 'Phase 3', title: 'Admin Foundation (Candidate mgmt, exam & topic taxonomies)', status: 'READY' },
                   { phase: 'Phase 4', title: 'Question Bank (CRUD, bilingual tags, version control)', status: 'READY' },
@@ -448,7 +448,7 @@ GET  /api/v1/admin/overview     # Executive admin metrics and analytics`}
                 <div className="font-bold text-emerald-900">Phase 1 Objectives Accomplished:</div>
                 <ul className="list-disc pl-5 space-y-1 text-emerald-900">
                   <li><strong>Core Server & REST API</strong>: Express backend on port 3000 hosting <code>/api/v1/*</code> endpoints with logging and structured errors.</li>
-                  <li><strong>Central Database Architecture</strong>: Central PostgreSQL abstraction & <code>/database/schema.sql</code> with 28 normalized tables.</li>
+                  <li><strong>Central Database Architecture</strong>: Self-contained serverless relational store with file-system persistence and zero external DB dependencies.</li>
                   <li><strong>Bilingual Question Bank & Indian Exam Coverage</strong>: Realistic questions and mock tests for IBPS PO, SSC CGL, MPPSC, and MP Police.</li>
                   <li><strong>Live Operational Exam Engine</strong>: Authentic TCS iON style testing palette, countdown clock, auto-save to server, and instant scorecard calculation.</li>
                   <li><strong>Admin Console Foundation</strong>: Real-time KPIs, Question Bank manager, Bulk Import & OCR simulator, and Mock Test Synthesizer.</li>

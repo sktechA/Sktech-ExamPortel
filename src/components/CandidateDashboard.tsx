@@ -59,6 +59,7 @@ import { SmartPracticeView } from './SmartPracticeView';
 import { MistakeBookView } from './MistakeBookView';
 import { StudyPlannerView } from './StudyPlannerView';
 import { SpeedAnalyticsView } from './SpeedAnalyticsView';
+import { PerformanceHistoryView } from './PerformanceHistoryView';
 
 interface CandidateDashboardProps {
   exams: Exam[];
@@ -80,6 +81,7 @@ interface CandidateDashboardProps {
 
 export type CandidateSubView =
   | 'TESTS'
+  | 'PERFORMANCE_HISTORY'
   | 'SPEED_BOOSTERS'
   | 'COMBINED_MOCKS'
   | 'SMART_PRACTICE'
@@ -306,6 +308,7 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
       <section className="bg-white rounded-2xl p-2 border border-slate-200 shadow-xs flex items-center overflow-x-auto gap-1.5 scrollbar-thin">
         {[
           { key: 'TESTS', labelEn: 'Mock Tests & Papers', labelHi: 'मॉक टेस्ट व प्रश्नपत्र', icon: BookOpen },
+          { key: 'PERFORMANCE_HISTORY', labelEn: 'Performance History', labelHi: 'प्रदर्शन इतिहास व प्रगति', icon: TrendingUp },
           { key: 'SPEED_BOOSTERS', labelEn: 'Speed Boosters (Track 1 & 2)', labelHi: 'स्पीड बूस्टर (ट्रैक 1 व 2)', icon: Zap },
           { key: 'COMBINED_MOCKS', labelEn: 'Combined Multi-Paper Mocks', labelHi: 'संयुक्त बहु-प्रश्नपत्र मॉक', icon: Layers },
           { key: 'SMART_PRACTICE', labelEn: 'Smart Practice & Drills', labelHi: 'स्मार्ट अभ्यास व चुनौतियां', icon: Brain },
@@ -333,75 +336,122 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
       </section>
 
       {/* 3. PERFORMANCE STATS STRIP (Reflects live candidate performance) */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">
-              {language === 'hi' ? 'समग्र सटीकता' : 'Overall Accuracy'}
-            </span>
-            <Target className="w-4 h-4 text-indigo-600" />
-          </div>
-          <div className="text-xl font-black text-slate-900">
-            {recentResult ? `${recentResult.accuracyPercentage}%` : '—'}
-          </div>
-          <div className="text-[11px] text-slate-500 font-semibold mt-0.5 flex items-center space-x-1">
-            {recentResult ? (
-              <span className="text-emerald-600 font-semibold flex items-center">
-                <TrendingUp className="w-3 h-3 mr-1" />
-                Live Result
+      <section className="space-y-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <button
+            type="button"
+            onClick={() => setActiveSubView('PERFORMANCE_HISTORY')}
+            className="text-left bg-white hover:bg-slate-50 transition rounded-2xl p-4 border border-slate-200/80 shadow-2xs group cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider group-hover:text-indigo-600 transition">
+                {language === 'hi' ? 'समग्र सटीकता' : 'Overall Accuracy'}
               </span>
-            ) : (
-              <span>Take a mock test to calculate</span>
-            )}
-          </div>
+              <Target className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="text-xl font-black text-slate-900 font-mono">
+              {recentResult ? `${recentResult.accuracyPercentage}%` : '—'}
+            </div>
+            <div className="text-[11px] text-slate-500 font-semibold mt-0.5 flex items-center space-x-1">
+              {recentResult ? (
+                <span className="text-emerald-600 font-semibold flex items-center">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  Live Result
+                </span>
+              ) : (
+                <span>Click to view history</span>
+              )}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubView('PERFORMANCE_HISTORY')}
+            className="text-left bg-white hover:bg-slate-50 transition rounded-2xl p-4 border border-slate-200/80 shadow-2xs group cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider group-hover:text-blue-600 transition">
+                {language === 'hi' ? 'परीक्षण प्रयास' : 'Tests Attempted'}
+              </span>
+              <BookOpen className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="text-xl font-black text-slate-900 font-mono">
+              {recentResult ? '1+ Logged' : '0 Logged'}
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
+              {recentResult ? `${recentResult.testTitle.substring(0, 22)}...` : 'View learning curve'}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubView('PERFORMANCE_HISTORY')}
+            className="text-left bg-white hover:bg-slate-50 transition rounded-2xl p-4 border border-slate-200/80 shadow-2xs group cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider group-hover:text-amber-600 transition">
+                {language === 'hi' ? 'औसत गति' : 'Avg Pacing Speed'}
+              </span>
+              <Clock className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="text-xl font-black text-slate-900 font-mono">
+              {recentResult
+                ? `${Math.round(recentResult.totalTimeTakenSeconds / Math.max(1, recentResult.correctAnswers + recentResult.wrongAnswers))} sec/Q`
+                : '—'}
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+              {recentResult ? 'Based on latest attempt' : 'Pacing analytics'}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubView('PERFORMANCE_HISTORY')}
+            className="text-left bg-white hover:bg-slate-50 transition rounded-2xl p-4 border border-slate-200/80 shadow-2xs group cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider group-hover:text-emerald-600 transition">
+                {language === 'hi' ? 'परसेंटाइल' : 'Percentile'}
+              </span>
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="text-xl font-black text-slate-900 font-mono">
+              {recentResult ? `${recentResult.percentile} %ile` : '—'}
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+              {recentResult ? `Rank #${recentResult.rank} in ${recentResult.totalParticipants || recentResult.totalCandidates || 1000}` : 'View rank trajectory'}
+            </div>
+          </button>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">
-              {language === 'hi' ? 'परीक्षण प्रयास' : 'Tests Attempted'}
-            </span>
-            <BookOpen className="w-4 h-4 text-blue-600" />
+        {/* Quick Access Strip to Performance History */}
+        {activeSubView !== 'PERFORMANCE_HISTORY' && (
+          <div className="bg-gradient-to-r from-indigo-50 via-white to-indigo-50/50 rounded-2xl p-3 px-4 border border-indigo-100 flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-extrabold text-indigo-950">
+                  {language === 'hi' ? 'रीयल-टाइम स्कोर प्रगति एवं विश्लेषण' : 'Empirical Performance History & Score Trends'}
+                </span>
+                <span className="text-slate-500 hidden sm:inline ml-2">
+                  {language === 'hi'
+                    ? '— अपने मॉक टेस्ट प्राप्तांकों का ग्राफ एवं कट-ऑफ तुलना देखें'
+                    : '— Track test-by-test score gains, accuracy hit-rate, and cut-off benchmarks with Recharts'}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSubView('PERFORMANCE_HISTORY')}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-1.5 rounded-xl transition text-xs flex items-center space-x-1 cursor-pointer shrink-0 shadow-xs ml-2"
+            >
+              <span>{language === 'hi' ? 'प्रगति चार्ट देखें' : 'View Charts'}</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div className="text-xl font-black text-slate-900">
-            {recentResult ? '1 Completed' : '0 Tests'}
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            {recentResult ? `${recentResult.testTitle.substring(0, 22)}...` : 'No mock tests submitted yet'}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">
-              {language === 'hi' ? 'औसत गति' : 'Avg Pacing Speed'}
-            </span>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-xl font-black text-slate-900">
-            {recentResult
-              ? `${Math.round(recentResult.totalTimeTakenSeconds / Math.max(1, recentResult.correctAnswers + recentResult.wrongAnswers))} sec/Q`
-              : '—'}
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            {recentResult ? 'Based on latest attempt' : 'Requires test attempt'}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider">
-              {language === 'hi' ? 'परसेंटाइल' : 'Percentile'}
-            </span>
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
-          </div>
-          <div className="text-xl font-black text-slate-900">
-            {recentResult ? `${recentResult.percentile} %ile` : '—'}
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-            {recentResult ? `Rank #${recentResult.rank} in ${recentResult.totalCandidates}` : 'All-India Rank on submission'}
-          </div>
-        </div>
+        )}
       </section>
 
       {/* ========================================================================= */}
@@ -776,6 +826,22 @@ export const CandidateDashboard: React.FC<CandidateDashboardProps> = ({
             </section>
           )}
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW: PERFORMANCE HISTORY & SCORE PROGRESS VISUALIZER (RECHARTS)          */}
+      {/* ========================================================================= */}
+      {activeSubView === 'PERFORMANCE_HISTORY' && (
+        <section className="animate-in fade-in">
+          <PerformanceHistoryView
+            candidateUser={candidateUser}
+            recentResult={recentResult}
+            mockTests={mockTests}
+            language={language}
+            onStartTest={onStartTest}
+            onViewResult={onViewResult}
+          />
+        </section>
       )}
 
       {/* ========================================================================= */}

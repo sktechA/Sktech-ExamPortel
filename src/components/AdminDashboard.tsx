@@ -72,7 +72,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     todayAttempts: 2154,
     todayRegistrations: 142,
     serverHealth: 'HEALTHY',
-    databaseStatus: 'CONNECTED (PostgreSQL)',
+    databaseStatus: 'ONLINE (Self-Contained Store)',
     storageUsageMb: 428.5,
     apiVersion: 'v1.0.4-phase1',
   });
@@ -415,10 +415,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
               <span className="text-[10px] font-semibold text-slate-400 uppercase">Database</span>
-              <div className="text-sm font-black text-slate-800 mt-2 font-mono">PostgreSQL</div>
+              <div className="text-sm font-black text-slate-800 mt-2 font-mono">Serverless Engine</div>
               <span className="text-[10px] text-emerald-600 font-semibold flex items-center space-x-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                <span>Central Online</span>
+                <span>Self-Contained</span>
               </span>
             </div>
           </div>

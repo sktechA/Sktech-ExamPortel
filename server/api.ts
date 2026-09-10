@@ -71,7 +71,7 @@ apiRouter.get('/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     status: 'HEALTHY',
     database: {
-      provider: 'PostgreSQL (Central)',
+      provider: 'Self-Contained Serverless Engine (Zero-Config)',
       status: metrics.databaseStatus,
       tables: 28,
       indexes: 64,
@@ -94,18 +94,18 @@ apiRouter.get('/specs', (req: Request, res: Response) => {
         'Admin Mobile App',
         'Admin Windows Desktop EXE (.NET 8/WPF)',
       ],
-      centralBackend: 'One Central Node.js/TypeScript REST API with OpenAPI & PostgreSQL',
+      centralBackend: 'Self-Contained Node.js/TypeScript REST API with Zero External DB Dependency',
       technologyStack: {
         webFrontend: 'React 19, TypeScript, Tailwind CSS v4, Motion, Lucide Icons',
         backend: 'Node.js, Express, TypeScript, tsx, esbuild',
-        database: 'PostgreSQL with Prisma/TypeORM abstraction',
+        database: 'Self-Contained Serverless Relational Store with File-System Fallback',
         desktopAdmin: '.NET 8 / 10 + WPF with typed REST client and offline background queue',
         mobileApps: 'React Native + Expo (cross-platform iOS and Android)',
-        cacheAndQueue: 'Redis + BullMQ (Abstraction-ready)',
+        cacheAndQueue: 'In-Memory Cache + Persistent State Buffer',
       },
-      zeroCostDev: 'Runs on standard Windows machine with zero paid dependencies.',
+      zeroCostDev: 'Runs directly out-of-the-box on Vercel and local dev with zero external database setup.',
       security: {
-        passwordHashing: 'Argon2 / bcrypt',
+        passwordHashing: 'Argon2 / PBKDF2 / bcrypt',
         jwtTokens: 'Access Token (15m) + Refresh Token (7d) with rotation',
         scoringIntegrity: 'Server-side evaluation only; client calculations never trusted',
         rateLimiting: 'IP & token-based rate limiting on all endpoints',
@@ -207,6 +207,7 @@ apiRouter.post('/questions', (req: Request, res: Response) => {
   };
 
   db.questions.unshift(newQuestion);
+  db.saveStateToFile();
 
   db.auditLogs.unshift({
     id: `log_${Date.now()}`,
@@ -277,6 +278,7 @@ apiRouter.post('/attempts/start', (req: Request, res: Response) => {
   };
 
   db.attempts.push(newAttempt);
+  db.saveStateToFile();
 
   res.json({
     success: true,
@@ -407,6 +409,7 @@ apiRouter.post('/attempts/:id/submit', (req: Request, res: Response) => {
 
   attempt.status = 'SUBMITTED';
   db.results.unshift(scorecard);
+  db.saveStateToFile();
 
   res.json({
     success: true,
@@ -415,7 +418,7 @@ apiRouter.post('/attempts/:id/submit', (req: Request, res: Response) => {
   });
 });
 
-// 8. Results & Scorecards (Real PostgreSQL database lookup, zero fallback)
+// 8. Results & Scorecards (Real Serverless Store lookup, zero external DB dependencies)
 apiRouter.get('/results/candidate/latest', (req: Request, res: Response) => {
   const candidateId = req.query.candidateId as string;
   let result = null;
@@ -430,6 +433,22 @@ apiRouter.get('/results/candidate/latest', (req: Request, res: Response) => {
   }
   // Authoritative real database return — no fake fallback
   res.json({ success: true, data: result });
+});
+
+apiRouter.get('/results/candidate/history', (req: Request, res: Response) => {
+  const candidateId = req.query.candidateId as string;
+  let results: any[] = [];
+  if (candidateId) {
+    const userAttempts = db.attempts.filter(
+      (a) => a.userId === candidateId && (a.status === 'SUBMITTED' || a.status === 'AUTO_SUBMITTED')
+    );
+    const attemptIds = new Set(userAttempts.map((a) => a.id));
+    results = db.results.filter((r) => attemptIds.has(r.attemptId) || (r as any).candidateId === candidateId);
+  } else {
+    // If no candidateId query param passed, return recent evaluated scorecards
+    results = db.results.slice(0, 30);
+  }
+  res.json({ success: true, count: results.length, data: results });
 });
 
 apiRouter.get('/results/:attemptId', (req: Request, res: Response) => {

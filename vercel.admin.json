@@ -1,21 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build",
+  "framework": "vite",
+  "buildCommand": "npm run build:admin",
   "outputDirectory": "dist",
   "cleanUrls": true,
-  "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/admin/:path*",
-      "destination": "/admin.html"
-    },
-    {
-      "source": "/candidate/:path*",
-      "destination": "/candidate.html"
-    },
-    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/admin.html"
     }
   ],
   "headers": [
@@ -26,8 +18,7 @@
         { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD" },
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, x-admin-token, *" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
       ]
     }
   ]
