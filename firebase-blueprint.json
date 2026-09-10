@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with authentication and learning metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["CANDIDATE", "ADMIN"] },
+        "targetExam": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "lastActiveAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "ExamAttempt": {
+      "title": "ExamAttempt",
+      "description": "Candidate exam attempt results and score history",
+      "type": "object",
+      "properties": {
+        "attemptId": { "type": "string" },
+        "userId": { "type": "string" },
+        "testId": { "type": "string" },
+        "testTitle": { "type": "string" },
+        "examTitle": { "type": "string" },
+        "score": { "type": "number" },
+        "totalMarks": { "type": "number" },
+        "accuracy": { "type": "number" },
+        "percentile": { "type": "number" },
+        "submittedAt": { "type": "string" }
+      },
+      "required": ["attemptId", "userId", "testId", "score"]
+    },
+    "VoiceNote": {
+      "title": "VoiceNote",
+      "description": "Candidate voice transcribed doubt notes or queries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "transcription": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "transcription"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Candidate and administrator user profile documents"
+    },
+    "/users/{userId}/attempts/{attemptId}": {
+      "schema": "ExamAttempt",
+      "description": "Historical test attempts, scores and analytics for the user"
+    },
+    "/users/{userId}/voiceNotes/{noteId}": {
+      "schema": "VoiceNote",
+      "description": "Saved audio transcriptions and exam doubts for the candidate"
+    }
+  }
+}

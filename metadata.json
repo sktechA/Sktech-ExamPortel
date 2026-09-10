@@ -1,0 +1,7 @@
+{
+  "name": "SKTECH EXAM",
+  "description": "Enterprise competitive-exam preparation platform featuring candidate and admin portals, exam engine, bilingual question bank, analytics, search grounding, voice transcription, and Firebase authentication.",
+  "requestFramePermissions": ["microphone", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
